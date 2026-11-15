@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mian Egg Traders - Kharcha Book</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f3f6f8;color:#18212b}
+header{background:linear-gradient(135deg,#0f7b45,#b51f2a);color:#fff;padding:22px 18px 28px}
+header h1{margin:0;font-size:24px}header p{margin:6px 0 0;opacity:.9}
+.container{max-width:1100px;margin:-16px auto 40px;padding:0 14px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.card{background:#fff;border-radius:16px;padding:16px;box-shadow:0 4px 16px #00000012}
+.card small{color:#65717d}.amount{font-size:22px;font-weight:800;margin-top:7px}
+.green{color:#087a43}.red{color:#b51f2a}.blue{color:#1769aa}
+.tabs{display:flex;gap:8px;margin:18px 0;overflow:auto}
+button{border:0;border-radius:11px;padding:11px 15px;font-weight:700;cursor:pointer}
+.tab{background:#fff;color:#333}.tab.active{background:#0f7b45;color:#fff}
+.panel{display:none;background:#fff;border-radius:16px;padding:18px;box-shadow:0 4px 16px #00000010}
+.panel.active{display:block}
+form{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+label{font-size:13px;font-weight:700;color:#4c5964}
+input,select,textarea{width:100%;padding:12px;border:1px solid #d8e0e6;border-radius:10px;margin-top:6px;font-size:15px}
+.full{grid-column:1/-1}
+.primary{background:#0f7b45;color:#fff}.danger{background:#b51f2a;color:#fff}.muted{background:#edf1f3}
+table{width:100%;border-collapse:collapse;margin-top:15px;font-size:14px}
+th,td{padding:11px 8px;border-bottom:1px solid #e7ecef;text-align:left}th{color:#5b6670}
+.badge{padding:5px 8px;border-radius:99px;font-size:12px;font-weight:700}.in{background:#e5f7ed;color:#087a43}.out{background:#fde8e9;color:#a81e28}
+.actions{display:flex;gap:7px;flex-wrap:wrap}
+.empty{text-align:center;color:#71808b;padding:28px}
+@media(max-width:700px){.cards{grid-template-columns:repeat(2,1fr)}form{grid-template-columns:1fr}.full{grid-column:auto}table{font-size:12px}.card{padding:13px}.amount{font-size:18px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🥚 MIAN EGG TRADERS</h1>
+  <p>Kharcha Book • Sales • Expenses • Udhaar • Profit</p>
+</header>
+<div class="container">
+  <div class="cards">
+    <div class="card"><small>Total Sales</small><div class="amount green" id="sales">Rs 0</div></div>
+    <div class="card"><small>Total Expenses</small><div class="amount red" id="expenses">Rs 0</div></div>
+    <div class="card"><small>Net Profit</small><div class="amount blue" id="profit">Rs 0</div></div>
+    <div class="card"><small>Entries</small><div class="amount" id="count">0</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="add">➕ Add Entry</button>
+    <button class="tab" data-tab="ledger">📒 Ledger</button>
+    <button class="tab" data-tab="customers">👤 Customers</button>
+  </div>
+
+  <section id="dashboard" class="panel active">
+    <h2>Today / Overall Summary</h2>
+    <div id="summary"></div>
+  </section>
+
+  <section id="add" class="panel">
+    <h2>Add Entry</h2>
+    <form id="entryForm">
+      <div><label>Date</label><input type="date" id="date" required></div>
+      <div><label>Type</label>
+        <select id="type"><option value="sale">Sale / Cash In</option><option value="expense">Expense / Cash Out</option></select>
+      </div>
+      <div><label>Category</label>
+        <select id="category">
+          <option>Egg Sale</option><option>Egg Purchase</option><option>Supplier Payment</option>
+          <option>Transport</option><option>Loading</option><option>Shop Expense</option><option>Other</option>
+        </select>
+      </div>
+      <div><label>Amount (Rs)</label><input type="number" id="amount" min="0" step="1" required></div>
+      <div><label>Person / Shop / Supplier</label><input id="person" placeholder="e.g. Ali Store"></div>
+      <div><label>Quantity / Note</label><input id="note" placeholder="e.g. 5 pati / 60 trays"></div>
+      <div class="full actions"><button class="primary" type="submit">Save Entry</button><button class="muted" type="reset">Clear</button></div>
+    </form>
+  </section>
+
+  <section id="ledger" class="panel">
+    <div class="actions" style="justify-content:space-between;align-items:center">
+      <h2 style="margin:0">Ledger</h2>
+      <button class="danger" onclick="clearAll()">Clear All Data</button>
+    </div>
+    <input id="search" placeholder="Search person, category or note..." oninput="render()">
+    <div id="tableWrap"></div>
+  </section>
+
+  <section id="customers" class="panel">
+    <h2>Customer / Supplier Balances</h2>
+    <p style="color:#687681">Use the person/shop field when adding sales, purchases or payments. This section summarizes their entries.</p>
+    <div id="people"></div>
+  </section>
+</div>
+
+<script>
+const KEY="mianEggKharchaV1";
+let entries=JSON.parse(localStorage.getItem(KEY)||"[]");
+const fmt=n=>"Rs "+Number(n||0).toLocaleString("en-PK");
+document.getElementById("date").value=new Date().toISOString().slice(0,10);
+
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+ document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));
+ b.classList.add("active");document.getElementById(b.dataset.tab).classList.add("active");render();
+});
+document.getElementById("entryForm").onsubmit=e=>{
+ e.preventDefault();
+ entries.unshift({
+  id:Date.now(),date:date.value,type:type.value,category:category.value,
+  amount:Number(amount.value),person:person.value.trim(),note:note.value.trim()
+ });
+ localStorage.setItem(KEY,JSON.stringify(entries));e.target.reset();
+ date.value=new Date().toISOString().slice(0,10);
+ alert("Entry saved successfully.");render();
+};
+function render(){
+ let sales=entries.filter(x=>x.type==="sale").reduce((a,x)=>a+x.amount,0);
+ let expenses=entries.filter(x=>x.type==="expense").reduce((a,x)=>a+x.amount,0);
+ document.getElementById("sales").textContent=fmt(sales);
+ document.getElementById("expenses").textContent=fmt(expenses);
+ document.getElementById("profit").textContent=fmt(sales-expenses);
+ document.getElementById("count").textContent=entries.length;
+ document.getElementById("summary").innerHTML=`
+ <p><b>Sales:</b> ${fmt(sales)}</p><p><b>Expenses:</b> ${fmt(expenses)}</p>
+ <p><b>Net:</b> <span class="${sales-expenses>=0?'green':'red'}">${fmt(sales-expenses)}</span></p>
+ <p style="color:#687681">Data is stored in this browser on this device.</p>`;
+ let q=(document.getElementById("search")?.value||"").toLowerCase();
+ let filtered=entries.filter(x=>(x.person+" "+x.category+" "+x.note).toLowerCase().includes(q));
+ let rows=filtered.map(x=>`<tr>
+ <td>${x.date}</td><td><span class="badge ${x.type==="sale"?"in":"out"}">${x.type==="sale"?"IN":"OUT"}</span></td>
+ <td>${x.category}</td><td>${x.person||"-"}</td><td>${x.note||"-"}</td><td><b>${fmt(x.amount)}</b></td>
+ <td><button class="muted" onclick="del(${x.id})">Delete</button></td></tr>`).join("");
+ document.getElementById("tableWrap").innerHTML=filtered.length?`<table><thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Person</th><th>Note</th><th>Amount</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:`<div class="empty">No entries yet.</div>`;
+ let map={};entries.forEach(x=>{let p=x.person||"Unknown";map[p]=(map[p]||0)+(x.type==="sale"?x.amount:-x.amount)});
+ document.getElementById("people").innerHTML=Object.keys(map).length?`<table><tr><th>Person / Shop</th><th>Net</th></tr>${Object.entries(map).map(([p,v])=>`<tr><td>${p}</td><td class="${v>=0?'green':'red'}"><b>${fmt(v)}</b></td></tr>`).join("")}</table>`:`<div class="empty">No customer/supplier data yet.</div>`;
+}
+function del(id){if(confirm("Delete this entry?")){entries=entries.filter(x=>x.id!==id);localStorage.setItem(KEY,JSON.stringify(entries));render()}}
+function clearAll(){if(confirm("Delete ALL entries?")){entries=[];localStorage.setItem(KEY,"[]");render()}}
+render();
+</script>
+</body>
+</html>
